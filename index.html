@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PocketLit Expert Evaluation</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 <style>
   :root{
     --bg:#f7f7f5; --panel:#ffffff; --border:#e2e2df; --text:#1f2320; --muted:#6b6f6b;
@@ -49,6 +52,8 @@
   .response li{margin-bottom:3px}
   .response code{background:#e9efe9;border-radius:3px;padding:1px 4px;font-size:.92em}
   .response h3,.response h4,.response h5{margin:14px 0 6px}
+  .response .katex-display{margin:8px 0;overflow-x:auto;overflow-y:hidden}
+  .response .katex{font-size:1.05em}
   .milestone-note{background:#fbf6e8;border:1px solid #ecdca0;border-radius:8px;padding:14px 16px;font-size:13.5px;margin-bottom:16px}
   .criterion{border-top:1px solid var(--border);padding:16px 0}
   .criterion:first-of-type{border-top:none;padding-top:4px}
@@ -310,6 +315,17 @@ function renderItem(){
   currentScores = {};
   $("qQuery").textContent = it.query;
   $("qResponse").innerHTML = it.response ? renderMarkdownLite(it.response) : "<p>(empty response)</p>";
+  if (window.renderMathInElement){
+    try {
+      window.renderMathInElement($("qResponse"), {
+        delimiters: [
+          {left: "\\[", right: "\\]", display: true},
+          {left: "\\(", right: "\\)", display: false},
+        ],
+        throwOnError: false,
+      });
+    } catch(e){ /* leave raw LaTeX text if rendering fails for this item */ }
+  }
   $("contextBlock").open = false;   // always collapsed on a new item, regardless of prior state
   if (it.context){
     $("contextBlock").classList.remove("hidden");
