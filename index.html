@@ -35,7 +35,13 @@
   .qtext{font-size:16px;font-weight:600;margin:0 0 12px}
   .block-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:6px}
   .context, .response{background:#fbfbf9;border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-size:13.5px;margin-bottom:16px;max-height:280px;overflow:auto}
-  .context{white-space:pre-wrap}
+  .context{white-space:pre-wrap;margin-top:8px}
+  details.context-wrap{margin-bottom:16px}
+  details.context-wrap summary{cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;padding:2px 0}
+  details.context-wrap summary:hover{color:var(--accent-dark)}
+  .jump-row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .jump-row input{width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:5px;font:inherit;text-align:center}
+  .jump-row button{padding:5px 10px;font-size:12px}
   .response{background:#f5f8f6;border-color:#d9e6dd;font-size:14px;max-height:420px}
   .response p{margin:0 0 10px}
   .response p:last-child{margin-bottom:0}
@@ -93,15 +99,22 @@
       <span class="progress-label" id="progressLabel"></span>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="row" style="justify-content:flex-end;margin-top:8px">
+      <div class="jump-row">
+        Jump to item
+        <input type="number" id="jumpInput" min="1">
+        <button type="button" class="secondary" id="btnJump">Go</button>
+      </div>
+    </div>
 
     <div style="margin-top:18px">
       <div class="block-label">Query</div>
       <p class="qtext" id="qQuery"></p>
 
-      <div id="contextBlock">
-        <div class="block-label">Retrieved context provided to the AI</div>
+      <details class="context-wrap" id="contextBlock">
+        <summary>Retrieved context provided to the AI (click to expand)</summary>
         <div class="context" id="qContext"></div>
-      </div>
+      </details>
 
       <div class="block-label">Response to evaluate</div>
       <div class="response" id="qResponse"></div>
@@ -297,6 +310,7 @@ function renderItem(){
   currentScores = {};
   $("qQuery").textContent = it.query;
   $("qResponse").innerHTML = it.response ? renderMarkdownLite(it.response) : "<p>(empty response)</p>";
+  $("contextBlock").open = false;   // always collapsed on a new item, regardless of prior state
   if (it.context){
     $("contextBlock").classList.remove("hidden");
     $("qContext").textContent = it.context;
@@ -310,17 +324,38 @@ function renderItem(){
   const done = Object.keys(ratings).length;
   $("progressLabel").textContent = `Item ${cursor+1} of ${ORDER.length} available to you  ·  ${done} rated total`;
   $("progressFill").style.width = Math.round(((cursor)/ORDER.length)*100) + "%";
+  $("jumpInput").value = cursor + 1;
+  $("jumpInput").max = ORDER.length;
   show("screen-rate");
 }
 
-function submitCurrent(){
-  const id = ORDER[cursor];
-  ratings[id] = {
-    id,
+/** The record for whatever is currently on screen, built from the live selection —
+ * NOT from `ratings`, so it reflects choices made but not yet "Submit & Next"-ed. */
+function buildCurrentRecord(){
+  return {
+    id: ORDER[cursor],
     scores: {...currentScores},
     comment: $("comment").value.trim(),
     ratedAt: new Date().toISOString(),
   };
+}
+
+/** Persist the on-screen item if every criterion is filled in and it hasn't been
+ * submitted yet. Called before every export/finish/jump so a fully-rated item is
+ * never silently dropped just because "Submit & Next" wasn't clicked first. */
+function commitPendingIfComplete(){
+  if ($("screen-rate").classList.contains("hidden")) return;
+  const id = ORDER[cursor];
+  if (!id || ratings[id]) return;
+  const allSet = CRITERIA.every(c => currentScores[c.key] != null);
+  if (!allSet) return;
+  ratings[id] = buildCurrentRecord();
+  saveProgress();
+}
+
+function submitCurrent(){
+  const id = ORDER[cursor];
+  ratings[id] = buildCurrentRecord();
   saveProgress();
   cursor++;
   if (milestoneIndex && cursor === milestoneIndex && !milestonePassed){
@@ -328,6 +363,14 @@ function submitCurrent(){
     show("screen-milestone");
     return;
   }
+  renderItem();
+}
+
+function jumpToItem(n){
+  commitPendingIfComplete();
+  const target = Math.min(Math.max(1, n), ORDER.length) - 1;
+  cursor = target;
+  if (milestoneIndex && cursor >= milestoneIndex) milestonePassed = true;
   renderItem();
 }
 
@@ -401,11 +444,19 @@ $("loadFile").addEventListener("change", (ev) => {
 });
 
 $("btnNext").addEventListener("click", submitCurrent);
-$("btnDownload").addEventListener("click", downloadRatings);
-$("btnFinish").addEventListener("click", () => finishAndDownload());
+$("btnDownload").addEventListener("click", () => { commitPendingIfComplete(); downloadRatings(); });
+$("btnFinish").addEventListener("click", () => { commitPendingIfComplete(); finishAndDownload(); });
 $("btnDownloadFinal").addEventListener("click", downloadRatings);
 $("btnMilestoneFinish").addEventListener("click", () => finishAndDownload());
 $("btnMilestoneContinue").addEventListener("click", () => { milestonePassed = true; renderItem(); });
+
+$("btnJump").addEventListener("click", () => {
+  const n = parseInt($("jumpInput").value, 10);
+  if (Number.isFinite(n)) jumpToItem(n);
+});
+$("jumpInput").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") $("btnJump").click();
+});
 
 init();
 </script>
