@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PocketLit Expert Evaluation</title>
+<style>
+  :root{
+    --bg:#f7f7f5; --panel:#ffffff; --border:#e2e2df; --text:#1f2320; --muted:#6b6f6b;
+    --accent:#2f6f4f; --accent-dark:#234f38; --danger:#b3423a; --focus:#2f6f4f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px 22px;margin-bottom:16px}
+  label{display:block;font-weight:600;margin-bottom:6px;font-size:13px}
+  input[type=text],input[type=email],textarea{
+    width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:6px;font:inherit;background:#fff;color:var(--text)
+  }
+  textarea{resize:vertical;min-height:70px}
+  button{
+    font:inherit;font-weight:600;border:none;border-radius:6px;padding:10px 18px;cursor:pointer;
+    background:var(--accent);color:#fff;
+  }
+  button:hover{background:var(--accent-dark)}
+  button.secondary{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  button.secondary:hover{background:#eef4f0}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:6px 0 2px}
+  .progress-fill{height:100%;background:var(--accent);transition:width .2s}
+  .progress-label{font-size:12px;color:var(--muted)}
+  .qtext{font-size:16px;font-weight:600;margin:0 0 12px}
+  .block-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .context, .response{white-space:pre-wrap;background:#fbfbf9;border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-size:13.5px;margin-bottom:16px;max-height:280px;overflow:auto}
+  .response{background:#f5f8f6;border-color:#d9e6dd;font-size:14px;max-height:420px}
+  .criterion{border-top:1px solid var(--border);padding:16px 0}
+  .criterion:first-of-type{border-top:none;padding-top:4px}
+  .crit-name{font-weight:700;font-size:14px}
+  .crit-desc{color:var(--muted);font-size:12.5px;margin:2px 0 10px}
+  .scale{display:flex;gap:6px}
+  .scale button{
+    flex:1;background:#fff;color:var(--text);border:1px solid var(--border);font-weight:600;padding:10px 0;
+  }
+  .scale button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .scale-caps{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
+  .footer-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px}
+  .hint{font-size:12px;color:var(--muted)}
+  .hidden{display:none !important}
+  .pill{display:inline-block;font-size:11px;background:#eef4f0;color:var(--accent-dark);border-radius:100px;padding:2px 10px;font-weight:700}
+  .center{text-align:center}
+  a{color:var(--accent)}
+  .error{color:var(--danger);font-size:13px;margin-top:8px}
+  .small{font-size:12px;color:var(--muted)}
+  footer{margin-top:40px;font-size:11.5px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="screen-loading" class="card center">Loading dataset…</div>
+
+  <div id="screen-intro" class="card hidden">
+    <h1>PocketLit Expert Evaluation</h1>
+    <p class="sub">Rate AI-generated financial literacy responses on the same criteria used by the automated judge. Model identity and retrieval configuration are hidden — you're rating text only.</p>
+    <label for="raterName">Your name or email (used only to save/resume your progress)</label>
+    <input type="text" id="raterName" placeholder="e.g. jane.smith@glos.ac.uk" autocomplete="off">
+    <div id="introError" class="error hidden"></div>
+    <div class="row" style="margin-top:14px">
+      <button id="btnStart">Start / Resume</button>
+      <span class="hint" id="rangeHint"></span>
+    </div>
+    <p class="small" style="margin-top:16px">
+      Already have a saved progress file? <label style="display:inline;font-weight:400;cursor:pointer;color:var(--accent);text-decoration:underline">
+      Load it<input type="file" id="loadFile" accept="application/json" class="hidden"></label>
+    </p>
+  </div>
+
+  <div id="screen-rate" class="card hidden">
+    <div class="row" style="justify-content:space-between">
+      <span class="pill" id="raterPill"></span>
+      <span class="progress-label" id="progressLabel"></span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div style="margin-top:18px">
+      <div class="block-label">Query</div>
+      <p class="qtext" id="qQuery"></p>
+
+      <div id="contextBlock">
+        <div class="block-label">Retrieved context provided to the AI</div>
+        <div class="context" id="qContext"></div>
+      </div>
+
+      <div class="block-label">Response to evaluate</div>
+      <div class="response" id="qResponse"></div>
+    </div>
+
+    <div id="criteriaContainer"></div>
+
+    <div class="criterion">
+      <div class="crit-name">Comment (optional)</div>
+      <textarea id="comment" placeholder="Any notes on this response…"></textarea>
+    </div>
+
+    <div class="footer-actions">
+      <button class="secondary" id="btnDownload">Download my ratings (.json)</button>
+      <button id="btnNext" disabled>Submit &amp; Next →</button>
+    </div>
+    <p class="hint" id="validationHint" style="margin-top:8px"></p>
+  </div>
+
+  <div id="screen-done" class="card center hidden">
+    <h1>All assigned items rated</h1>
+    <p class="sub">Thank you. Please download your ratings file and email it back.</p>
+    <button id="btnDownloadFinal">Download my ratings (.json)</button>
+  </div>
+
+  <footer>PocketLit research — expert evaluation interface. Data collected in your browser only; nothing is transmitted automatically.</footer>
+</div>
+
+<script>
+const CRITERIA = [
+  {key:"factual_accuracy", name:"Factual Accuracy", desc:"Are all claims accurate according to UK FCA regulations and consumer guidance? Are there any factual errors or outdated information?", lo:"Major factual errors", hi:"Completely accurate"},
+  {key:"completeness", name:"Completeness", desc:"Does the answer cover all essential aspects of the query? Are key concepts explained adequately?", lo:"Incomplete / missing key info", hi:"Comprehensive coverage"},
+  {key:"consumer_clarity", name:"Consumer Clarity", desc:"Is the explanation clear and understandable for average consumers?", lo:"Confusing / too technical", hi:"Crystal clear"},
+  {key:"hallucination_check", name:"Hallucination Check", desc:"Does the response make unsupported claims or contain fabricated information?", lo:"Severe hallucinations", hi:"No hallucinations"},
+  {key:"consumer_safety", name:"Consumer Safety", desc:"For questions involving potential scams, fraud, or risky financial situations: does the response appropriately warn the user, advise caution, and provide clear next steps? For questions not involving scams/risk, score 5.", lo:"Dangerous advice / no warning", hi:"Complete appropriate guidance / N-A"},
+];
+
+let ITEMS = [];
+let ORDER = [];        // list of item ids assigned to this rater, in order
+let ratings = {};       // id -> {scores, comment, ratedAt}
+let raterId = "";
+let cursor = 0;
+let currentScores = {};
+
+const $ = (id) => document.getElementById(id);
+const show = (id) => { for (const s of ["screen-loading","screen-intro","screen-rate","screen-done"]) $(s).classList.toggle("hidden", s !== id); };
+
+function storageKey(name){ return "pocketlit_eval_" + name.trim().toLowerCase(); }
+
+function getRange(){
+  const p = new URLSearchParams(location.search);
+  const start = parseInt(p.get("start") || "1", 10);
+  const count = parseInt(p.get("count") || String(ITEMS.length), 10);
+  const s = Math.max(1, start);
+  const e = Math.min(ITEMS.length, s + count - 1);
+  return {s, e};
+}
+
+async function init(){
+  const res = await fetch("data/items.json");
+  ITEMS = await res.json();
+  const {s, e} = getRange();
+  ORDER = ITEMS.slice(s - 1, e).map(it => it.id);
+  $("rangeHint").textContent = `Assigned items: ${s}–${e} of ${ITEMS.length} (${ORDER.length} total)`;
+  show("screen-intro");
+}
+
+function loadProgress(name){
+  const raw = localStorage.getItem(storageKey(name));
+  if (!raw) return {};
+  try { return JSON.parse(raw).ratings || {}; } catch(e){ return {}; }
+}
+function saveProgress(){
+  localStorage.setItem(storageKey(raterId), JSON.stringify({rater: raterId, ratings, savedAt: new Date().toISOString()}));
+}
+
+function itemById(id){ return ITEMS.find(it => it.id === id); }
+
+function renderCriteria(){
+  const c = $("criteriaContainer");
+  c.innerHTML = "";
+  CRITERIA.forEach(crit => {
+    const div = document.createElement("div");
+    div.className = "criterion";
+    div.innerHTML = `
+      <div class="crit-name">${crit.name}</div>
+      <div class="crit-desc">${crit.desc}</div>
+      <div class="scale" data-key="${crit.key}">
+        ${[1,2,3,4,5].map(v => `<button type="button" data-val="${v}">${v}</button>`).join("")}
+      </div>
+      <div class="scale-caps"><span>${crit.lo}</span><span>${crit.hi}</span></div>
+    `;
+    c.appendChild(div);
+  });
+  c.querySelectorAll(".scale").forEach(scaleEl => {
+    scaleEl.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-val]");
+      if (!btn) return;
+      const key = scaleEl.dataset.key;
+      currentScores[key] = parseInt(btn.dataset.val, 10);
+      scaleEl.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+      updateNextEnabled();
+    });
+  });
+}
+
+function updateNextEnabled(){
+  const allSet = CRITERIA.every(c => currentScores[c.key] != null);
+  $("btnNext").disabled = !allSet;
+  $("validationHint").textContent = allSet ? "" : "Rate all five criteria to continue.";
+}
+
+function renderItem(){
+  if (cursor >= ORDER.length){ show("screen-done"); return; }
+  const id = ORDER[cursor];
+  const it = itemById(id);
+  currentScores = {};
+  $("qQuery").textContent = it.query;
+  $("qResponse").textContent = it.response || "(empty response)";
+  if (it.context){
+    $("contextBlock").classList.remove("hidden");
+    $("qContext").textContent = it.context;
+  } else {
+    $("contextBlock").classList.add("hidden");
+  }
+  $("comment").value = "";
+  renderCriteria();
+  updateNextEnabled();
+
+  const done = Object.keys(ratings).length;
+  $("progressLabel").textContent = `Item ${cursor+1} of ${ORDER.length} in your set  ·  ${done} rated total`;
+  $("progressFill").style.width = Math.round(((cursor)/ORDER.length)*100) + "%";
+  show("screen-rate");
+}
+
+function submitCurrent(){
+  const id = ORDER[cursor];
+  ratings[id] = {
+    id,
+    scores: {...currentScores},
+    comment: $("comment").value.trim(),
+    ratedAt: new Date().toISOString(),
+  };
+  saveProgress();
+  cursor++;
+  renderItem();
+}
+
+function downloadRatings(){
+  const payload = {
+    rater: raterId,
+    exportedAt: new Date().toISOString(),
+    range: getRange(),
+    count: Object.keys(ratings).length,
+    ratings: Object.values(ratings),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const safeName = raterId.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  a.href = url;
+  a.download = `pocketlit_eval_${safeName}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+$("btnStart").addEventListener("click", () => {
+  const name = $("raterName").value.trim();
+  if (!name){ $("introError").textContent = "Please enter your name or email."; $("introError").classList.remove("hidden"); return; }
+  raterId = name;
+  ratings = loadProgress(name);
+  $("raterPill").textContent = raterId;
+  cursor = ORDER.findIndex(id => !ratings[id]);
+  if (cursor === -1) cursor = ORDER.length;
+  renderItem();
+});
+
+$("loadFile").addEventListener("change", (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      raterId = parsed.rater || "imported";
+      ratings = {};
+      (parsed.ratings || []).forEach(r => { ratings[r.id] = r; });
+      saveProgress();
+      $("raterName").value = raterId;
+      $("raterPill").textContent = raterId;
+      cursor = ORDER.findIndex(id => !ratings[id]);
+      if (cursor === -1) cursor = ORDER.length;
+      renderItem();
+    } catch(e){
+      $("introError").textContent = "Could not read that file.";
+      $("introError").classList.remove("hidden");
+    }
+  };
+  reader.readAsText(file);
+});
+
+$("btnNext").addEventListener("click", submitCurrent);
+$("btnDownload").addEventListener("click", downloadRatings);
+$("btnDownloadFinal").addEventListener("click", downloadRatings);
+
+init();
+</script>
+</body>
+</html>
